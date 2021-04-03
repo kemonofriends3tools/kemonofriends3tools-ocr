@@ -1,41 +1,54 @@
 // base: http://www.initialsite.com/g07/16371
-function ocr() {
-  var picFolderId = 'xxxxxxxxxx';  //作業フォルダ(OCR入力支援ツール 画像投入先)のid
-  var folder = DriveApp.getFolderById(picFolderId);
-  var images = folder.getFilesByType('image/png');  //作業フォルダからpng画像のリストを取得  
-  var dataMap = {}; //スプレッドシートに渡すデータを保持する連想配列
+function ocr2() {
+  const picFolderId = '1CrrGHJ9eq6LtiHTvby2uN1n1BiS2W6d_';  //作業フォルダ(OCR入力支援ツール 画像投入先)のid
+  const folder = DriveApp.getFolderById(picFolderId);
 
-  const startTime = Date.now(); //経過時間計測
-  
+  //作業シート取得
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("main");
+  //作業シート内位置定義
+  const friendsStartRow = 7; //フレンズ開始行
+  const friendsEndRow = 40; //フレンズ終了行
+  const photoStartRow = 44; //フォト開始行
+  const photoEndRow = 54; //フォト終了行
+  const startCol = 3; //入力欄開始列
+  const headFriends = sheet.getRange(friendsStartRow,1,friendsEndRow - friendsStartRow + 1).getValues();  //フレンズ行名配列作成
+  const headPhoto = sheet.getRange(photoStartRow,1,photoEndRow - photoStartRow + 1).getValues();  //フォト行名配列作成
+
+  const startTime = Date.now(); //経過時間計測用
+
+  let images = folder.getFilesByType('image/png');  //作業フォルダからpng画像のリストを取得  
   while(images.hasNext()){
-    var image = images.next();
-    var docName = image.getName().split("\.")[0];
+    const image = images.next();
+    const docName = image.getName().split("\.")[0];
     
     //作業ファイルをparentsで親ディレクトリを指定して保存。そうしないとルートに出来てしまう。 https://qiita.com/nazomikan/items/4fcf3bbd1b73162575f0
     var Request_body = {
-      title: "tmp_" + docName, 
+      title: docName, 
       parents: [{id: picFolderId}],
       mimeType: 'image/jpeg'
     }
     Drive.Files.insert(Request_body, image, { ocr: true }); //OCRオプション付きで保存することにより画像がgoogle docとなる。
 
-    var docs;
+    //作成したgoogle docを取得する。driveの更新タイミングの問題か、docs.next();で取ろうとすると上手く取れない場合が結構ある。
+    //そのため１秒のウェイトをいれつつ取得できるまでリトライを試みる。GASにはスクリプト実行時間制限があるので、最悪でもそこでループは終了する。
+    let docs;
     do {
       Logger.log(docName + "読み取り待機(1s)");
-      Utilities.sleep(1000); //driveのタイミングの問題か、docs.next();で取得エラーになることがあるのでここで１秒待ってみる。
+      Utilities.sleep(1000);
       docs = folder.getFilesByType('application/vnd.google-apps.document');
     }while(!docs.hasNext());
 
-    var file = docs.next();
-    var docId = file.getId();
-    var doc = DocumentApp.openById(docId);
-    var text = doc.getBody().getText().split('\n')[1]; //作業用docファイルのn行目を取得する。0は画像なので1から先を見る。
-    
+    //google docからデータを取得
+    let file = docs.next();
+    let docId = file.getId();
+    let doc = DocumentApp.openById(docId);
+    let text = doc.getBody().getText().split('\n')[1]; //docファイルの2行目(index=1)を取得する。index=0は画像なので1から先を見る。
+
     //入力項目（ファイル名）に応じ、読み取ったtextを加工する
     //textが取得できなかった場合はskip
     if(text){
       //入力項目（ファイル名）取得
-      var tmpFileName = docName.substr(2);
+      const tmpFileName = docName.substr(2);
       if(tmpFileName == "70けもステ" ||tmpFileName == "70体力" ||tmpFileName == "70攻撃" ||tmpFileName == "70守り" ||tmpFileName == "プラズム" ||tmpFileName == "MP"){
         //数値なので、数字以外は削除
         text = text.replace(/[^0-9]/g, '');
@@ -61,55 +74,60 @@ function ocr() {
       }else if(tmpFileName == "ミラクル+"){
         if(1 <= text.length){
           if(text.substr(0,1) == 'B'){
-            text = "beat"
+            text = "beat";
           }else if(text.substr(0,1) == 'A'){
             text = "action";
           }else if(text.substr(0,1) == 'T'){
-            text = "try"
+            text = "try";
           }
         }
 
       }
+
+      //データ投入処理
+      let targetRow = -1;
+      //ファイル名頭文字でフレンズかフォトかを判定し、入力項目名との一致を調べて編集対象行を特定する。
+      if(docName.substr(0,1) == 'f'){
+          targetRow = headFriends.findIndex(i => i[0] == tmpFileName);
+          if(0 <= targetRow) targetRow += friendsStartRow;
+      }else if(docName.substr(0,1) == 'p'){
+          targetRow = headFriends.findIndex(i => i[0] == tmpFileName);
+          if(0 <= targetRow) targetRow += photoStartRow;
+      }
+      //編集対象行が取得できた場合のみ処理
+      if(0 < targetRow){
+        const targetCol = docName.substr(1,1) *1 + startCol - 1; //ファイル名から編集対象列を計算。
+        sheet.getRange(targetRow,targetCol).setValue(text);
+      }else{
+        Logger.log("targetRow取得失敗：" + targetRow);
+      }
+
+      const currentTime = Date.now() - startTime; //開始からの処理時間取得
+      Logger.log("[" +  Math.floor(currentTime / 60000) + ":" +  ((currentTime % 60000) / 1000).toFixed(0) + "] " + docName + " 処理完了");
+    }else{
+      const currentTime = Date.now() - startTime; //開始からの処理時間取得
+      Logger.log("[" +  Math.floor(currentTime / 60000) + ":" +  ((currentTime % 60000) / 1000).toFixed(0) + "] " + docName + " から有効なテキストが取得出来なかった為、処理をスキップ。");
     }
 
-    //取得したデータをdataMapに格納する。
-    //typeに対応するオブジェクトの存在を確認し、無い場合は作る。
-    if(!dataMap[docName.substr(0,1)]) dataMap[docName.substr(0,1)] = {};
-    //typeオブジェクト取得
-    var tmpObjType = dataMap[docName.substr(0,1)];
-    //loopCount（ループ回数）に対応するオブジェクトの存在を確認し、無い場合は作る。
-    if(!tmpObjType[docName.substr(1,1)]) tmpObjType[docName.substr(1,1)] = {};
-    //loopCount（ループ回数）オブジェクト取得
-    var tmpObjLoopCount = tmpObjType[docName.substr(1,1)];
-    //データ投入。キーはファイル名の残り（列名に等しいはず）
-    tmpObjLoopCount[docName.substr(2)] = text;
-
-    const currentTime = Date.now() - startTime; //開始からの処理時間取得
-    Logger.log("[" +  Math.floor(currentTime / 60000) + ":" +  ((currentTime % 60000) / 1000).toFixed(0) + "] " + docName + " 読み取り処理完了");
-
     //ファイル削除。setTrashed(true)でゴミ箱行きになる。
-    file.setTrashed(true);  //作業用doc
     image.setTrashed(true); //解析済画像
+    //作業用doc。タイムアウト等で同名ファイルが複数存在する可能性があるので、ファイル名で検索して一致するものを全て削除する。
+    docs = folder.getFilesByName(docName);
+    while(docs.hasNext()){
+      docs.next().setTrashed(true);
+    }
+
   }
 
-  //作業ディレクトリを空にする
-  var files = folder.getFiles();
-  while(files.hasNext()) {
-    var file = files.next();
-    file.setTrashed(true);
-  }
-  
-  Logger.log("全画像の読み取り処理完了。シートへのデータ投入処理開始。");
+  Logger.log("全画像の処理完了。");
+}
 
-  //作業シート取得
+//作業シート初期化
+function clearArea(){
+  //シート取得
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("main");
 
-  var friendsStartRow = 11; //フレンズ開始行
-  var friendsEndRow = 38; //フレンズ終了行（備考等OCRに存在しないものは含まない）
-  var photoStartRow = 44; //フォト開始行
-  var photoEndRow = 52; //フォト終了行（備考等OCRに存在しないものは含まない）
-
-  //作業エリア初期化
+  //エリア初期化
   sheet.getRange(7,3,34,5).clearContent();
   sheet.getRange(44,3,11,5).clearContent();
 
@@ -122,43 +140,5 @@ function ocr() {
   today.setHours(0, 0, 0, 0);
   sheet.getRange(39,3,1,5).setValue(today);
   sheet.getRange(53,3,1,5).setValue(today);
-
-  if(dataMap['f']){
-    //フレンズ有
-    var tmpObjType = dataMap['f'];
-    for(var i=1; i<=5; i++){
-      if(tmpObjType[i]){
-        //loopCount（ループ回数）オブジェクト有
-        var tmpObj = tmpObjType[i];
-
-        //フレンズの項目でループ（野生解放～CV）
-        for(var j=friendsStartRow; j<=friendsEndRow; j++){
-          //1列目の項目名取得
-          var tmpHead = sheet.getRange(j,1).getValues();
-          //対応する場所に書き込み(注：iは1スタート)
-          sheet.getRange(j,2 + i).setValue(tmpObj[tmpHead])
-        }
-      }
-    }
-  }
-
-  if(dataMap['p']){
-    //フォト有
-    var tmpObjType = dataMap['p'];
-    for(var i=1; i<=5; i++){
-      if(tmpObjType[i]){
-        //loopCount（ループ回数）オブジェクト有
-        var tmpObj = tmpObjType[i];
-
-        //フォトの項目でループ（野生解放～CV）
-        for(var j=photoStartRow; j<=photoEndRow; j++){
-          //1列目の項目名取得
-          var tmpHead = sheet.getRange(j,1).getValues();
-          //対応する場所に書き込み(注：iは1スタート)
-          sheet.getRange(j,2 + i).setValue(tmpObj[tmpHead])
-        }
-      }
-    }
-  }
-
+ 
 }
