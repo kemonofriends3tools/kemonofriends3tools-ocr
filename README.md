@@ -16,7 +16,7 @@
 あくまで同様のシステムを作ろうという人か、画像分解のため PowerShell のスクリプトだけ参考にしたいなとか、そういうコードが読める人向けのものです。
 
 一連の詳細な使い方は下記スプレッドシート（以下 OCR シートと呼ぶ）の help タブに書かれていますのでそちらを参照してください。  
-https://docs.google.com/spreadsheets/d/1f11Mr-Xs41YXazuKgquIy13iqynI2joY8SbbNKNDZDo/edit#gid=1448018105
+https://docs.google.com/spreadsheets/d/1Xm3_NpFM73fNPU8keec6vLjpBS31HBGIvlJjiTKYmQ4/edit#gid=1448018105
 
 ## 各公開ファイル・シートの補足
 
@@ -30,6 +30,6 @@ OCR シートの help シート で手順を見ると判りますが、入出力
 実際には OCR シートのスプリクトエディッタ内に配置しており、画像をアップロード後スプリクトエディッタから直接実行しています（実行ログが見えたほうが都合がよい為）。  
 実際にこれを使うには 3 行目の picFolderId に、分解画像アップロード先となる google drive のフォルダ ID(URL の末尾に出てくる英数字列)を指定する必要があります。
 
-### [OCR シート](https://docs.google.com/spreadsheets/d/1f11Mr-Xs41YXazuKgquIy13iqynI2joY8SbbNKNDZDo/edit#gid=1448018105)
+### [OCR シート](https://docs.google.com/spreadsheets/d/1Xm3_NpFM73fNPU8keec6vLjpBS31HBGIvlJjiTKYmQ4/edit#gid=1448018105)
 
 処理のメインとなる main シートの他、一連の使い方を一般ユーザー向けに書いた help シート、trim.ps1 の画像座標を求めるために使った計算用シートなどが入っています。
