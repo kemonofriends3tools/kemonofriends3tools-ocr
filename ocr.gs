@@ -1,5 +1,5 @@
 // base: http://www.initialsite.com/g07/16371
-function ocr2() {
+function ocr() {
   const picFolderId = '1CrrGHJ9eq6LtiHTvby2uN1n1BiS2W6d_';  //作業フォルダ(OCR入力支援ツール 画像投入先)のid
   const folder = DriveApp.getFolderById(picFolderId);
 
