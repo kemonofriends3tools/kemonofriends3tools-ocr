@@ -91,7 +91,7 @@ function ocr() {
           targetRow = headFriends.findIndex(i => i[0] == tmpFileName);
           if(0 <= targetRow) targetRow += friendsStartRow;
       }else if(docName.substr(0,1) == 'p'){
-          targetRow = headFriends.findIndex(i => i[0] == tmpFileName);
+          targetRow = headPhoto.findIndex(i => i[0] == tmpFileName);
           if(0 <= targetRow) targetRow += photoStartRow;
       }
       //編集対象行が取得できた場合のみ処理
